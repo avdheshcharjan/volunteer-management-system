@@ -52,17 +52,17 @@ Your availability has been updated successfully!
 
 ---
 
-## 4. Recipient Signup
+## 4. Beneficiary Signup
 
-**Command:** `/recipient_signup`
+**Command:** `/beneficiary_signup`
 
-**Description:** Recipients sign up using the organization code.
+**Description:** Beneficiary sign up using the organization code.
 
 **Bot Response:**
-Signup successful! You have been registered as a recipient.
+Signup successful! You have been registered as a beneficiary.
 
 **Admin Notification:**
-New recipient signup: <recipient_name> needs help on <date> at <time>. Help needed: <help_needed>
+New beneficiary signup: <beneficiary_name> needs help on <date> at <time>. Help needed: <help_needed>
 
 
 ---
@@ -71,13 +71,13 @@ New recipient signup: <recipient_name> needs help on <date> at <time>. Help need
 
 **Command:** `/update_needs`
 
-**Description:** Recipients update their need date.
+**Description:** Beneficiarys update their need date.
 
 **Bot Workflow:**
 1. **Bot Asks for New Date and Time:**
 Please provide the new date and time for your needs in the format: YYYY-MM-DD HH
 
-2. **Recipient Provides New Date and Time:**
+2. **Beneficiary Provides New Date and Time:**
 
 3. **Bot Updates Database and Responds:**
 Your needs date has been updated successfully!
@@ -105,17 +105,17 @@ Volunteer 2
 
 ---
 
-## 7. Assign Volunteer to Recipient
+## 7. Assign Volunteer to Beneficiary
 
 **Command:** `/assign`
 
-**Description:** Admin assigns a volunteer to a recipient at a specific date and time.
+**Description:** Admin assigns a volunteer to a beneficiary at a specific date and time.
 
 **Bot Workflow:**
-1. **Bot Asks for Recipient Name and Volunteer Name:**
-Please provide the recipient's name and the volunteer's name to assign, in the format: recipient_name, volunteer_name
+1. **Bot Asks for Beneficiary Name and Volunteer Name:**
+Please provide the beneficiary's name and the volunteer's name to assign, in the format: beneficiary_name, volunteer_name
 
-2. **Admin Provides Recipient Name and Volunteer Name:**
+2. **Admin Provides Beneficiary Name and Volunteer Name:**
 
 3. **Bot Checks and Responds:**
    - **If Successful:**
@@ -123,22 +123,22 @@ Volunteer assigned successfully!
 
 **Notifications:**
 - **To Volunteer:**
-You have been assigned to help <recipient_name> on <date> at <time>.
+You have been assigned to help <beneficiary_name> on <date> at <time>.
 
-- **To Recipient:**
+- **To Beneficiary:**
 <volunteer_name> has been assigned to assist you on <date> at <time>.
 
 ---
 
-## 8. Show Unattended Recipients
+## 8. Show Unattended Beneficiaries
 
 **Command:** `/show_unattended`
 
-**Description:** Show recipients who are not yet attended to, with their date and time.
+**Description:** Show beneficiaries who have not yet attended, with their date and time.
 
 **Bot Response:**
-Unattended recipients:
+Unattended beneficiaries:
 
-Recipient 1: <date> at <time>
-Recipient 2: <date> at <time>
+Beneficiary 1: <date> at <time>
+Beneficiary 2: <date> at <time>
 
