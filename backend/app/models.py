@@ -15,10 +15,10 @@ class Organization(db.Model):
 class Admin(db.Model):
     __tablename__ = 'admins'
     admin_id = db.Column(db.Integer, primary_key=True)
+    telegram_user_id= db.Column(db.String(100), nullable=False, unique=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.org_id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), nullable=False, unique=True)
-    password = db.Column(db.String(200), nullable=False)
 
 class Volunteer(db.Model):
     __tablename__ = 'volunteers'
@@ -40,8 +40,8 @@ class Recipient(db.Model):
     email = db.Column(db.String(100), nullable=False, unique=True)
     phone_number = db.Column(db.String(20), nullable=False)
     help_needed = db.Column(db.Text, nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
+    availability = db.Column(JSON, nullable=False)  # Stores availability as JSON
+
 
 class Assignment(db.Model):
     __tablename__ = 'assignments'
@@ -49,3 +49,11 @@ class Assignment(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey('recipients.recipient_id'), nullable=False)
     volunteer_id = db.Column(db.Integer, db.ForeignKey('volunteers.volunteer_id'), nullable=False)
     status = db.Column(db.String(20), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    time = db.Column(db.Time, nullable=False)
+
+def clear_all_tables():
+    meta = db.metadata
+    for table in reversed(meta.sorted_tables):
+        db.session.execute(table.delete())
+    db.session.commit()

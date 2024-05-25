@@ -13,10 +13,10 @@ CREATE TABLE organizations (
 -- Create admins table
 CREATE TABLE admins (
     admin_id SERIAL PRIMARY KEY,
+    telegram_user_id VARCHAR(100) NOT NULL UNIQUE,
     org_id INTEGER NOT NULL REFERENCES organizations(org_id),
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(200) NOT NULL
+    email VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- Create volunteers table
@@ -40,8 +40,7 @@ CREATE TABLE recipients (
     email VARCHAR(100) NOT NULL UNIQUE,
     phone_number VARCHAR(20) NOT NULL,
     help_needed TEXT NOT NULL,
-    date DATE NOT NULL,
-    time TIME NOT NULL
+    availability JSON
 );
 
 -- Create assignments table
@@ -49,12 +48,8 @@ CREATE TABLE assignments (
     assignment_id SERIAL PRIMARY KEY,
     recipient_id INTEGER NOT NULL REFERENCES recipients(recipient_id),
     volunteer_id INTEGER NOT NULL REFERENCES volunteers(volunteer_id),
+    date DATE NOT NULL,
+    time TIME NOT NULL,
     status VARCHAR(20) NOT NULL
 );
 
--- Optional: Insert sample data
-INSERT INTO organizations (admin_telegram_user_id, organization_code, name, contact_person, email, phone_number, description)
-VALUES ('admin_telegram_id', 'org123', 'Helping Hands', 'Jane Doe', 'jane.doe@example.com', '1234567890', 'A non-profit organization focused on community service');
-
-INSERT INTO admins (org_id, name, email, password)
-VALUES (1, 'Admin User', 'admin@example.com', 'hashedpassword');
