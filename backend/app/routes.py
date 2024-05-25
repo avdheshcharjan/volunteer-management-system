@@ -3,7 +3,10 @@ from . import db
 from .models import Organization, Admin, Volunteer, Recipient, Assignment, clear_all_tables
 import string
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
+import logging 
+
+logger = logging.getLogger(__name__)
 
 def generate_org_code(length=8):
     """Generate a unique organization code."""
@@ -58,7 +61,7 @@ def volunteer_signup():
     )
     db.session.add(new_volunteer)
     db.session.commit()
-    return jsonify({'message': 'Signup successful! You are now registered as a volunteer. You can indicate your availability using the command: /indicate_availability. Format: {"monday": ["10:00-14:00"], "tuesday": ["09:00-17:00"]}'})
+    return jsonify({'message': 'Signup successful! You are now registered as a volunteer. You can indicate your availability using the command: /indicate_availability.'})
 
 @current_app.route('/indicate_availability', methods=['POST'])
 def indicate_availability():
@@ -88,11 +91,10 @@ def recipient_signup():
         email=data['email'],
         phone_number=data['phone_number'],
         help_needed=data['help_needed'],
-        availability=data['availability']
     )
     db.session.add(new_recipient)
     db.session.commit()
-    return jsonify({'message': 'Signup successful! You have been registered as a recipient.'})
+    return jsonify({'message': 'Signup successful! You have been registered as a recipient. You can indicate your needs date using the command: /update_needs'})
 
 @current_app.route('/update_needs', methods=['POST'])
 def update_needs():
@@ -157,7 +159,7 @@ def assign():
     recipient_name = data['recipient_name']
     volunteer_name = data['volunteer_name']
     date_str = data['date']
-    time_str = data['time']
+    time_range = data['time']  # Expected format: "10:00-11:00"
 
     recipient = Recipient.query.filter_by(name=recipient_name).first()
     volunteer = Volunteer.query.filter_by(name=volunteer_name).first()
@@ -168,21 +170,30 @@ def assign():
     if not volunteer:
         return jsonify({'message': 'Volunteer not found!'}), 404
 
-    # Convert date and time strings to datetime objects
+    # Convert date string to date object and time range to time objects
     date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    time = datetime.strptime(time_str, '%H:%M').time()
+    start_time_str, end_time_str = time_range.split('-')
+    start_time = datetime.strptime(start_time_str, '%H:%M').time()
+    end_time = datetime.strptime(end_time_str, '%H:%M').time()
 
     new_assignment = Assignment(
         recipient_id=recipient.recipient_id,
         volunteer_id=volunteer.volunteer_id,
         date=date,
-        time=time,
+        time=start_time,
         status='Pending'
     )
     db.session.add(new_assignment)
     db.session.commit()
 
-    return jsonify({'message': 'Volunteer assigned successfully!', 'date': date_str, 'time': time_str})
+    return jsonify({
+        'message': 'Volunteer assigned successfully!',
+        'date': date_str,
+        'time': time_range,
+        'volunteer_telegram_user_id': volunteer.telegram_user_id,
+        'recipient_telegram_user_id': recipient.telegram_user_id
+    })
+
 
 @current_app.route('/show_unattended', methods=['GET'])
 def show_unattended():
@@ -190,32 +201,60 @@ def show_unattended():
     unattended_recipients = []
 
     for recipient in all_recipients:
-        recipient_unattended = False
+        logger.debug(f"Processing recipient: {recipient.name}")
+        logger.debug(f"Availability: {recipient.availability}")
+        unattended_availability = {}
+
         for date_str, time_slots in recipient.availability.items():
+            logger.debug(f"Processing date: {date_str}, time_slots: {time_slots}")
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
             for time_slot in time_slots:
-                start_time_str, end_time_str = list(time_slot.items())[0]
-                start_time = datetime.strptime(start_time_str, '%H:%M').time()
-                end_time = datetime.strptime(end_time_str, '%H:%M').time()
-                
-                # Check if there is any assignment for this recipient at the given date and time
-                assignments = Assignment.query.filter_by(
-                    recipient_id=recipient.recipient_id,
-                    date=date,
-                    time=start_time  # Assuming assignments are stored with start_time
-                ).all()
-                
-                if not assignments:
-                    recipient_unattended = True
-                    break
+                try:
+                    logger.debug(f"Processing time_slot: {time_slot}")
+                    start_time_str, end_time_str = time_slot.split('-')
+                    start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                    end_time = datetime.strptime(end_time_str, '%H:%M').time()
 
-            if recipient_unattended:
-                unattended_recipients.append({
-                    'name': recipient.name,
-                    'date': date_str,
-                    'time_slot': time_slot
-                })
-                break
+                    # Find all assignments for the recipient on the given date
+                    assignments = Assignment.query.filter_by(
+                        recipient_id=recipient.recipient_id,
+                        date=date
+                    ).all()
+                    logger.debug(f"Assignments on {date_str}: {assignments}")
+
+                    # Calculate unattended slots
+                    current_start = start_time
+                    while current_start < end_time:
+                        slot_start = current_start
+                        slot_end = (datetime.combine(datetime.today(), current_start) + timedelta(hours=1)).time()
+                        if slot_end > end_time:
+                            slot_end = end_time
+
+                        # Check if this slot is assigned
+                        is_assigned = any(
+                            assignment.time == slot_start and assignment.time < slot_end
+                            for assignment in assignments
+                        )
+                        logger.debug(f"Checking slot {slot_start.strftime('%H:%M')}-{slot_end.strftime('%H:%M')}: Assigned={is_assigned}")
+
+                        if not is_assigned:
+                            unattended_slot = f"{slot_start.strftime('%H:%M')}-{slot_end.strftime('%H:%M')}"
+                            if date_str not in unattended_availability:
+                                unattended_availability[date_str] = []
+                            unattended_availability[date_str].append(unattended_slot)
+
+                        current_start = slot_end
+
+                except Exception as e:
+                    logger.error(f"Error processing time_slot '{time_slot}' for recipient '{recipient.name}' on date '{date_str}': {e}")
+
+        if unattended_availability:
+            unattended_recipients.append({
+                'name': recipient.name,
+                'unattended_availability': unattended_availability
+            })
+
+    logger.debug(f"Unattended_recipients: {unattended_recipients}")
 
     if unattended_recipients:
         return jsonify({'unattended_recipients': unattended_recipients})
