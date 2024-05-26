@@ -6,7 +6,8 @@ Introducing our Volunteer Management System Bot on Telegram, a seamless solution
 
 **Hackathon track:** Social Responsibility
 
-**Tech stack:** 
+**Tech stack:** Flask, Postgres, Telegram 
+
 ## 1. Register Organization
 
 **Command:** `/register_org`
