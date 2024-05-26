@@ -1,5 +1,9 @@
 # Volunteer Management Bot Documentation
 ## Slide Deck: https://docs.google.com/presentation/d/1BINGI6MG-lxte-DhPatgMZXpv4WfFMVA-z7P3L9jyJs/edit?usp=sharing
+
+**Project Description:** 
+**Hackathon track:** Social Responsibility
+**Tech stack:** 
 ## 1. Register Organization
 
 **Command:** `/register_org`
