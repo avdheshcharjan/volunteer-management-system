@@ -14,7 +14,7 @@ API_URL = 'http://localhost:5000'
 BOT_TOKEN = '7112686723:AAH9pPTv_e_T_NNiCM5RGOS6MzXiZe_QTrw'
 
 # Define conversation states
-ORG_DETAILS, VOLUNTEER_DETAILS, RECIPIENT_DETAILS, VOLUNTEER_AVAILABILITY, NEEDS_DETAILS = range(5)
+ORG_DETAILS, VOLUNTEER_DETAILS, RECIPIENT_DETAILS, VOLUNTEER_AVAILABILITY, GET_VOLUNTEERS, NEEDS_DETAILS, ASSIGN_DETAILS = range(7)
 
 # Define command handlers
 async def start(update: Update, _: CallbackContext) -> None:
@@ -61,22 +61,25 @@ async def volunteer_signup(update: Update, _: CallbackContext) -> int:
                               'Organization Code\n'
                               'Your name\n'
                               'Your Email\n'
-                              'Your Phone Number')
+                              'Your Phone Number\n'
+                              'Your Capabilities (e.g. First Aid, CPR)')
     return VOLUNTEER_DETAILS
 
 async def handle_volunteer_details(update: Update, context: CallbackContext) -> int:
     details = update.message.text.split('\n')
-    if len(details) < 4:
+    if len(details) < 5:
         await update.message.reply_text('Please provide all the details in the correct format.')
         return VOLUNTEER_DETAILS
 
-    org_code,name, email, phone_number = details
+    org_code,name, email, phone_number, capabilities = details
+    capabilities_list = [cap.strip() for cap in capabilities.split(',')]
     data = {
         "telegram_user_id": str(update.message.from_user.id),
         "organization_code": org_code,
         "name": name,
         "email": email,
-        "phone_number": phone_number
+        "phone_number": phone_number,
+        "capabilities": capabilities
     }
 
     response = requests.post(f'{API_URL}/volunteer_signup', json=data)
@@ -176,37 +179,68 @@ async def handle_needs_details(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text(response.json()['message'])
     return ConversationHandler.END
 
-async def get_available_volunteers(update: Update, context: CallbackContext) -> None:
-    org_id = context.args[0]
-    date = context.args[1]
-    time = context.args[2]
+async def start_get_available_volunteers(update: Update, context: CallbackContext) -> int:
+    await update.message.reply_text(
+        'Please provide the date and time in the format YYYY-MM-DD HH:MM.\n'
+        'Example: 2024-09-01 10:00'
+    )
+    return GET_VOLUNTEERS
 
-    data = {
-        'org_id': org_id,
-        'date': date,
-        'time': time
-    }
+async def receive_date_time(update: Update, context: CallbackContext) -> int:
+    try:
+        # Get the message text and split it by spaces
+        date_time = update.message.text.strip().split()
+        # Check if the split resulted in exactly 2 parts (date and time)
+        if len(date_time) != 2:
+            raise ValueError('Invalid format')
+        
+        # Assign date and time to context user data
+        context.user_data['date'] = date_time[0]
+        context.user_data['time'] = date_time[1]
 
-    response = requests.post(f'{API_URL}/get_available_volunteers', json=data)
-    result = response.json()
-    available_volunteers = result.get('available_volunteers', [])
-    if available_volunteers:
-        await update.message.reply_text('\n'.join(available_volunteers))
-    else:
-        await update.message.reply_text(result.get('message', 'No available volunteers found.'))
+        data = {
+            'date': context.user_data['date'],
+            'time': context.user_data['time'],
+            'org_id': 1
+        }
 
-async def assign(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 5:
-        await update.message.reply_text('Please provide the following details in the format:\n'
-                                  'Recipient Name Volunteer Name Date Time-Range\n\n'
-                                  'Example:\n'
-                                  'Alice Brown John Smith 2024-09-01 10:00-11:00')
-        return
+        # Make a request to the backend API
+        response = requests.post(f'{API_URL}/get_available_volunteers', json=data)
+        result = response.json()
+        available_volunteers = result.get('available_volunteers', [])
+        
+        # Prepare the reply message
+        if available_volunteers:
+            reply = 'Available volunteers:\n'
+            for volunteer in available_volunteers:
+                capabilities = volunteer.get('capabilities', [])
+                capabilities_str = ', '.join(capabilities) if capabilities else 'No capabilities listed'                
+                reply += f"{volunteer['name']}: {capabilities}\n"
+            await update.message.reply_text(reply)
+        else:
+            await update.message.reply_text(result.get('message', 'No available volunteers found.'))
+    except (IndexError, ValueError):
+        await update.message.reply_text('Invalid format. Please provide the date and time in the format YYYY-MM-DD HH:MM.')
+        return GET_VOLUNTEERS
 
-    recipient_name = context.args[0]
-    volunteer_name = context.args[1]
-    date_str = context.args[2]
-    time_range = context.args[3]
+    return ConversationHandler.END
+
+async def start_assign(update: Update, _: CallbackContext) -> int:
+    await update.message.reply_text(
+        'Please provide the details in the format:\n'
+        'Recipient Name Volunteer Name Date Time-Range\n\n'
+        'Example:\n'
+        'Alice Brown John Smith 2024-09-01 10:00-11:00'
+    )
+    return ASSIGN_DETAILS
+
+async def handle_assign_details(update: Update, context: CallbackContext) -> int:
+    details = update.message.text.split()
+    if len(details) < 4:
+        await update.message.reply_text('Please provide all the details in the correct format.')
+        return ASSIGN_DETAILS
+
+    recipient_name, volunteer_name, date_str, time_range = details
 
     data = {
         'recipient_name': recipient_name,
@@ -221,7 +255,9 @@ async def assign(update: Update, context: CallbackContext) -> None:
 
     if 'Volunteer assigned successfully!' in result['message']:
         # Notify volunteer and recipient
-        notify_assignment(result['volunteer_telegram_user_id'], result['recipient_telegram_user_id'], recipient_name, volunteer_name, date_str, time_range, context)
+        await notify_assignment(result['volunteer_telegram_user_id'], result['recipient_telegram_user_id'], recipient_name, volunteer_name, date_str, time_range, context)
+
+    return ConversationHandler.END
 
 async def notify_assignment(volunteer_telegram_user_id, recipient_telegram_user_id, recipient_name, volunteer_name, date, time_range, context):
     volunteer_message = f"You have been assigned to help {recipient_name} on {date} during {time_range}."
@@ -234,14 +270,16 @@ async def show_unattended(update: Update, _: CallbackContext) -> None:
     result = response.json()
     unattended = result.get('unattended_recipients', [])
     if unattended:
-        reply = "Unattended recipients:\n"
+        reply = "Unattended recipients:\n\n"
         for rec in unattended:
-            reply += f"- {rec['name']}:\n"
+            reply += f"\n- {rec['name']}\n"
+            reply += f"  Needs: {rec['needs']}\n"
             for date, time_slots in rec['unattended_availability'].items():
                 reply += f"  {date}: {', '.join(time_slots)}\n"
     else:
         reply = result.get('message', 'All recipients are attended to.')
     await update.message.reply_text(reply)
+
 
 
 async def clear_db(update: Update, context: CallbackContext) -> None:
@@ -268,8 +306,6 @@ def main() -> None:
     # application.add_handler(CommandHandler("indicate_availability", indicate_availability))
     # application.add_handler(CommandHandler("recipient_signup", recipient_signup))
     # application.add_handler(CommandHandler("update_needs", update_needs))
-    application.add_handler(CommandHandler("get_available_volunteers", get_available_volunteers))
-    application.add_handler(CommandHandler("assign", assign))
     application.add_handler(CommandHandler("show_unattended", show_unattended))
     application.add_handler(CommandHandler("clear_db", clear_db))
 
@@ -318,6 +354,24 @@ def main() -> None:
         fallbacks=[]
     )
     application.add_handler(conv_handler_needs)
+
+    conv_handler_get_volunteers = ConversationHandler(
+        entry_points=[CommandHandler('get_available_volunteers', start_get_available_volunteers)],
+        states={
+            GET_VOLUNTEERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_date_time)],
+        },
+        fallbacks=[],
+    )
+    application.add_handler(conv_handler_get_volunteers)
+
+    conv_handler_assign = ConversationHandler(
+        entry_points=[CommandHandler('assign', start_assign)],
+        states={
+            ASSIGN_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_assign_details)],
+        },
+        fallbacks=[],
+    )
+    application.add_handler(conv_handler_assign)
 
     # log all errors
     application.add_error_handler(error)

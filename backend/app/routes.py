@@ -57,7 +57,8 @@ def volunteer_signup():
         org_id=org.org_id,
         name=data['name'],
         email=data['email'],
-        phone_number=data['phone_number']
+        phone_number=data['phone_number'],
+        capabilities=data['capabilities']
     )
     db.session.add(new_volunteer)
     db.session.commit()
@@ -116,13 +117,24 @@ def get_available_volunteers():
 
     available_volunteers = find_available_volunteers(date, time, org_id)
     if available_volunteers:
-        return jsonify({'available_volunteers': [volunteer.name for volunteer in available_volunteers]})
+        for volunteer in available_volunteers:
+            logger.debug(f"Capababilities: {volunteer.capabilities}")
+        return jsonify({
+            'available_volunteers': [
+                {
+                    'name': volunteer.name,
+                    'capabilities': volunteer.capabilities
+                } 
+                for volunteer in available_volunteers
+            ]
+        })
     return jsonify({'message': 'No available volunteers found!'})
 
 def find_available_volunteers(date, time, org_id):
     volunteers = Volunteer.query.filter_by(org_id=org_id).all()
     available_volunteers = []
     for volunteer in volunteers:
+        logger.debug(f'Volunteer: {volunteer}')
         if is_available(volunteer, date, time):
             available_volunteers.append(volunteer)
     return available_volunteers
@@ -131,15 +143,13 @@ def is_available(volunteer, date_str, time_str):
     date = datetime.strptime(date_str, '%Y-%m-%d').date()
     time = datetime.strptime(time_str, '%H:%M').time()
     availability = volunteer.availability
-
-    # Check if the volunteer is available on the given date and time
-    day_of_week = date.strftime('%A').lower()
-    if day_of_week in availability:
-        available_times = availability[day_of_week]
+    logger.debug(f'Availability: {availability}')
+    if date_str in availability:
+        available_times = availability[date_str]
         for period in available_times:
-            start_time, end_time = period.split('-')
-            start_time = datetime.strptime(start_time, '%H:%M').time()
-            end_time = datetime.strptime(end_time, '%H:%M').time()
+            start_time_str, end_time_str = period.split('-')
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
             if start_time <= time <= end_time:
                 # Check if the volunteer is already assigned during this time
                 if not is_assigned(volunteer, date, time):
@@ -251,7 +261,8 @@ def show_unattended():
         if unattended_availability:
             unattended_recipients.append({
                 'name': recipient.name,
-                'unattended_availability': unattended_availability
+                'unattended_availability': unattended_availability,
+                'needs': recipient.help_needed
             })
 
     logger.debug(f"Unattended_recipients: {unattended_recipients}")
