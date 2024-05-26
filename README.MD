@@ -2,7 +2,10 @@
 ## Slide Deck: https://docs.google.com/presentation/d/1BINGI6MG-lxte-DhPatgMZXpv4WfFMVA-z7P3L9jyJs/edit?usp=sharing
 
 **Project Description:** 
+Introducing our Volunteer Management System Bot on Telegram, a seamless solution connecting volunteers with elderly and paraplegic beneficiaries. Built to address the lack of financial resources in many social services, our bot reduces administrative tasks from 3 hours to just 15 minutes. With low database costs of $10 to $50 per month and no need for a full-stack developer, it's an efficient, cost-effective tool. Beneficiaries can specify their needs and availability, while admins efficiently assign volunteers based on these details. Real-time notifications keep everyone informed, ensuring a smooth, responsive experience, replacing time-consuming emails and forms with streamlined management.
+
 **Hackathon track:** Social Responsibility
+
 **Tech stack:** 
 ## 1. Register Organization
 
