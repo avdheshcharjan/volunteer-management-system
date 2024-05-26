@@ -228,7 +228,7 @@ async def receive_date_time(update: Update, context: CallbackContext) -> int:
 async def start_assign(update: Update, _: CallbackContext) -> int:
     await update.message.reply_text(
         'Please provide the details in the format:\n'
-        'Recipient Name Volunteer Name Date Time-Range\n\n'
+        'Recipient_name Volunteer_name Date Time-Range\n\n'
         'Example:\n'
         'Alice Brown John Smith 2024-09-01 10:00-11:00'
     )
